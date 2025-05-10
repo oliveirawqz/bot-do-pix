@@ -116,7 +116,13 @@ client.on('messageCreate', message => {
         if (!chave) {
           return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
         }
-        return message.reply(`Chave Pix registrada: ${chave}\nExemplo de chave Pix: chave@exemplo.com`);
+        // Detecta o tipo de chave Pix
+        let tipoChave = 'EVP';
+        if (/^[0-9]{11}$/.test(chave)) tipoChave = 'CPF';
+        else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
+        else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
+        else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+        return message.reply(`Chave Pix (${tipoChave}): ${chave}`);
       }
 
       const valor = parseFloat(args[0]);
