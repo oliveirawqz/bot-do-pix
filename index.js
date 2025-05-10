@@ -2,7 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const qrcode = require('qrcode');
-const { Configuration, OpenAIApi } = require('openai');
+const { OpenAI } = require('openai');
 const fetch = require('node-fetch'); // Certifique-se de ter node-fetch instalado
 
 const client = new Client({
@@ -129,7 +129,7 @@ function saveRegistroStateMem() {
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 let openai = null;
 if (OPENAI_KEY) {
-  openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_KEY }));
+  openai = new OpenAI({ apiKey: OPENAI_KEY });
 }
 
 // --- Gemini API ---
