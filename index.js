@@ -85,14 +85,6 @@ client.on('messageCreate', message => {
   if (message.author.bot) return;
   if (!message.content.startsWith('!')) return;
 
-  // Verifica se o usuário tem algum dos cargos permitidos (por ID)
-  if (message.guild) {
-    const member = message.guild.members.cache.get(message.author.id);
-    if (member && !member.roles.cache.some(role => allowedRoleIds.includes(role.id))) {
-      return message.reply('Você não tem permissão para usar este bot.');
-    }
-  }
-
   const args = message.content.trim().split(' ');
   const command = args.shift().toLowerCase();
 
