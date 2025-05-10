@@ -91,6 +91,32 @@ client.on('messageCreate', message => {
   const db = loadDatabase();
   const userId = message.author.id;
 
+  // Comando para adicionar cargos permitidos
+  if (command === '!pixadd') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply('Apenas administradores podem adicionar cargos permitidos.');
+    }
+    const role = message.mentions.roles.first();
+    if (!role) {
+      return message.reply('Mencione o cargo que deseja permitir. Ex: !pixadd @cargo');
+    }
+    if (!allowedRoleIds.includes(role.id)) {
+      allowedRoleIds.push(role.id);
+    }
+    return message.reply(`Cargo ${role.name} adicionado à lista de permissões do bot!`);
+  }
+
+  // Permitir apenas administradores ou cargos permitidos
+  if (message.guild) {
+    const member = message.guild.members.cache.get(message.author.id);
+    if (
+      !member.permissions.has('Administrator') &&
+      !member.roles.cache.some(role => allowedRoleIds.includes(role.id))
+    ) {
+      return message.reply('Você não tem permissão para usar este bot.');
+    }
+  }
+
   if (command === '!pixreg') {
     const chavePix = args.join(' ');
     if (!chavePix) {
