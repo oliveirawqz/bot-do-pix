@@ -90,13 +90,63 @@ const allowedRoleIds = ['1368602269985275904']; // Substitua pelos IDs dos cargo
 // Canal de log configurável
 let pixLogChannelId = null;
 
+// Mapa para armazenar estado de registro aguardando tipo/chave por usuário
+const REG_STATE_FILE = './registro_state.json';
+let aguardandoRegistro = {};
+
+function loadRegistroState() {
+  if (!fs.existsSync(REG_STATE_FILE)) return {};
+  return JSON.parse(fs.readFileSync(REG_STATE_FILE));
+}
+
+function saveRegistroState(state) {
+  fs.writeFileSync(REG_STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+// Carregar estado pendente ao iniciar
+aguardandoRegistro = loadRegistroState();
+
 client.once('ready', () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
-  if (!message.content.startsWith('!')) return;
+  if (!message.content.startsWith('!')) {
+    // Se o usuário está aguardando resposta para registro de chave Pix
+    if (aguardandoRegistro[message.author.id]) {
+      const estado = aguardandoRegistro[message.author.id];
+      if (!estado.tipo) {
+        // Esperando o tipo
+        const tipo = message.content.trim().toLowerCase();
+        if (!['cpf', 'celular', 'email', 'aleatoria', 'cnpj'].includes(tipo)) {
+          return message.reply('Tipo inválido. Responda com: cpf, celular, email, aleatoria ou cnpj.');
+        }
+        estado.tipo = tipo;
+        saveRegistroState(aguardandoRegistro);
+        return message.reply(`Agora envie sua chave Pix do tipo ${tipo.toUpperCase()}:`);
+      } else if (!estado.chave) {
+        // Esperando a chave
+        const chavePix = message.content.trim();
+        // Validação simples (opcional)
+        let tipoDetectado = detectarTipoChavePix(chavePix);
+        if ((estado.tipo === 'cpf' && tipoDetectado !== 'cpf') ||
+            (estado.tipo === 'celular' && tipoDetectado !== 'cel') ||
+            (estado.tipo === 'email' && tipoDetectado !== 'email') ||
+            (estado.tipo === 'aleatoria' && tipoDetectado !== 'aleatoria') ||
+            (estado.tipo === 'cnpj' && tipoDetectado !== 'cnpj')) {
+          return message.reply(`A chave informada não corresponde ao tipo ${estado.tipo.toUpperCase()}. Tente novamente ou digite !pixreg para cancelar.`);
+        }
+        const db = loadDatabase();
+        db[message.author.id] = chavePix;
+        saveDatabase(db);
+        delete aguardandoRegistro[message.author.id];
+        saveRegistroState(aguardandoRegistro);
+        return message.reply(`Sua chave Pix (${estado.tipo.toUpperCase()}) foi registrada com sucesso!`);
+      }
+    }
+    return;
+  }
 
   const args = message.content.trim().split(' ');
   const command = args.shift().toLowerCase();
@@ -148,15 +198,11 @@ client.on('messageCreate', async message => {
     }
   }
 
-  // Comando para registrar chave Pix (sem detecção de tipo)
+  // Novo fluxo para registro interativo
   if (command === '!pixreg') {
-    const chavePix = args.join(' ');
-    if (!chavePix) {
-      return message.reply('Você precisa informar sua chave Pix. Ex: !pixreg chave@exemplo.com');
-    }
-    db[userId] = chavePix;
-    saveDatabase(db);
-    return message.reply('Sua chave Pix foi registrada com sucesso!');
+    aguardandoRegistro[userId] = { tipo: null, chave: null };
+    saveRegistroState(aguardandoRegistro);
+    return message.reply('Qual o tipo da sua chave Pix? Responda com: cpf, celular, email, aleatoria ou cnpj.');
   }
 
   if (command === '!pix') {
