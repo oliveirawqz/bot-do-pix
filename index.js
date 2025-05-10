@@ -271,6 +271,10 @@ client.on('messageCreate', message => {
       }
     });
   }
+
+  if (command === '!pixcmd') {
+    return message.reply('!pixadd @cargo\n!pixrem @cargo\n!pixreg <chave>\n!pix\n!pix <valor>\n!pixver @usuario\n!pixqrcode @usuario <valor>');
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
