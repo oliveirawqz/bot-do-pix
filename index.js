@@ -83,6 +83,7 @@ client.once('ready', () => {
 
 client.on('messageCreate', message => {
   if (message.author.bot) return;
+  if (!message.content.startsWith('!')) return;
 
   // Verifica se o usuário tem algum dos cargos permitidos (por ID)
   if (message.guild) {
