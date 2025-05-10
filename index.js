@@ -148,20 +148,15 @@ client.on('messageCreate', async message => {
     }
   }
 
-  // Comando para registrar chave Pix por tipo
-  if (command === '!pixcpf' || command === '!pixcel' || command === '!pixemail' || command === '!pixaleatoria' || command === '!pixcnpj') {
+  // Comando para registrar chave Pix (sem detecção de tipo)
+  if (command === '!pixreg') {
     const chavePix = args.join(' ');
     if (!chavePix) {
-      return message.reply('Você precisa informar sua chave Pix. Ex: `' + command + ' chave`');
-    }
-    const tipoEsperado = command.replace('!pix', '');
-    const tipoDetectado = detectarTipoChavePix(chavePix);
-    if (tipoEsperado !== tipoDetectado) {
-      return message.reply(`A chave informada não corresponde ao tipo esperado (${tipoEsperado.toUpperCase()}). Detected: ${tipoDetectado.toUpperCase()}`);
+      return message.reply('Você precisa informar sua chave Pix. Ex: !pixreg chave@exemplo.com');
     }
     db[userId] = chavePix;
     saveDatabase(db);
-    return message.reply(`Sua chave Pix (${tipoEsperado.toUpperCase()}) foi registrada com sucesso!`);
+    return message.reply('Sua chave Pix foi registrada com sucesso!');
   }
 
   if (command === '!pix') {
