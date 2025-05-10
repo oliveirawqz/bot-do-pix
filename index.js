@@ -123,7 +123,8 @@ client.on('messageCreate', message => {
         else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
         else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
         else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
-        return message.reply(`Chave Pix (${tipoChave}): ${chave}`);
+        else if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) tipoChave = 'Aleatória';
+        return message.reply(`Chave Pix (${tipoChave === 'Aleatória' ? 'Aleatória' : tipoChave}): ${chave}${tipoChave === 'Aleatória' ? ' (chave aleatória)' : ''}`);
       }
 
       const valor = parseFloat(args[0]);
@@ -158,6 +159,7 @@ client.on('messageCreate', message => {
           else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
           else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
           else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+          else if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) tipoChave = 'Aleatória';
           // Envia a mensagem com QR, chave e modelo
           if (!message.hasReplied) return message.reply({
             content: `QR Code Pix para R$${valor.toFixed(2)} gerado com sucesso!\nChave Pix: ${chave}\nTipo de chave: ${tipoChave}`,
@@ -189,6 +191,7 @@ client.on('messageCreate', message => {
     else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
     else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
     else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+    else if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) tipoChave = 'Aleatória';
     return message.reply(`Chave Pix (${tipoChave}) de ${mention}: ${chave}`);
   }
 
@@ -208,6 +211,7 @@ client.on('messageCreate', message => {
     else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
     else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
     else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+    else if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) tipoChave = 'Aleatória';
     const payload = gerarPayloadPix({
       key: chave,
       name: mention.username || 'Usuário',
