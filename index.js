@@ -11,7 +11,15 @@ const DB_FILE = './database.json';
 
 function loadDatabase() {
   if (!fs.existsSync(DB_FILE)) return {};
-  return JSON.parse(fs.readFileSync(DB_FILE));
+  const raw = fs.readFileSync(DB_FILE);
+  const db = JSON.parse(raw);
+  // Compatibilidade retroativa: se valor for string, converte para objeto
+  for (const k in db) {
+    if (typeof db[k] === 'string') {
+      db[k] = { chave: db[k], tipo: detectarTipoChavePix(db[k]) };
+    }
+  }
+  return db;
 }
 
 function saveDatabase(db) {
