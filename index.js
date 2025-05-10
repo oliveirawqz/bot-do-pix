@@ -106,6 +106,24 @@ client.on('messageCreate', message => {
     return message.reply(`Cargo ${role.name} adicionado à lista de permissões do bot!`);
   }
 
+  // Comando para remover cargos permitidos
+  if (command === '!pixrem') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply('Apenas administradores podem remover cargos permitidos.');
+    }
+    const role = message.mentions.roles.first();
+    if (!role) {
+      return message.reply('Mencione o cargo que deseja remover. Ex: !pixrem @cargo');
+    }
+    const index = allowedRoleIds.indexOf(role.id);
+    if (index !== -1) {
+      allowedRoleIds.splice(index, 1);
+      return message.reply(`Cargo ${role.name} removido da lista de permissões do bot!`);
+    } else {
+      return message.reply('Este cargo não está na lista de permissões.');
+    }
+  }
+
   // Permitir apenas administradores ou cargos permitidos
   if (message.guild) {
     const member = message.guild.members.cache.get(message.author.id);
