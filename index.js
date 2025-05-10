@@ -131,35 +131,49 @@ if (OPENAI_KEY) {
   openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_KEY }));
 }
 
-// Função para buscar últimas mensagens do canal para contexto IA
-async function getRecentMessagesForContext(channel, limit = 10) {
-  try {
-    const messages = await channel.messages.fetch({ limit });
-    // Ordena do mais antigo para o mais recente
-    return Array.from(messages.values()).reverse().map(msg => ({
-      author: msg.author.username,
-      content: msg.content
-    }));
-  } catch (e) {
-    return [];
+// Função para buscar o máximo de mensagens do canal para contexto IA
+async function getRecentMessagesForContext(channel, limit = 100) {
+  let messages = [];
+  let lastId = undefined;
+  while (messages.length < limit) {
+    const options = { limit: Math.min(100, limit - messages.length) };
+    if (lastId) options.before = lastId;
+    const fetched = await channel.messages.fetch(options);
+    if (fetched.size === 0) break;
+    messages = messages.concat(Array.from(fetched.values()));
+    lastId = fetched.last()?.id;
+    if (!lastId) break;
   }
+  // Ordena do mais antigo para o mais recente
+  return messages.reverse().map(msg => ({
+    author: msg.author.username,
+    content: msg.content
+  }));
 }
 
 async function iaResponder(mensagem, usuario, channel) {
   if (!openai) return null;
-  // Busca contexto das últimas mensagens
-  const historico = await getRecentMessagesForContext(channel, 10);
+  // Busca o máximo de contexto possível (até 100 mensagens)
+  const historico = await getRecentMessagesForContext(channel, 100);
   const chatHistory = historico.map(m => ({ role: 'user', content: `${m.author}: ${m.content}` }));
   chatHistory.push({ role: 'user', content: `@${usuario}: ${mensagem}` });
+  // Exemplo de boas conversas para o prompt
+  const exemplos = [
+    { role: 'user', content: '@Joao: Qual o melhor horário para pagar um boleto?' },
+    { role: 'assistant', content: 'Oi @Joao! O melhor horário é até as 17h em dias úteis, assim o pagamento compensa no mesmo dia.' },
+    { role: 'user', content: '@Maria: O que é uma chave Pix aleatória?' },
+    { role: 'assistant', content: 'Olá @Maria! Uma chave Pix aleatória é um código gerado pelo banco para receber pagamentos sem expor seus dados pessoais.' }
+  ];
   try {
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: 'Você é um bot simpático, prestativo e divertido em um servidor Discord brasileiro. Responda de forma breve, amigável, natural e relevante ao assunto. Sempre cite o usuário que te mencionou com @.' },
+        ...exemplos,
         ...chatHistory
       ],
-      max_tokens: 120,
-      temperature: 0.7,
+      max_tokens: 180,
+      temperature: 0.6,
       n: 1
     });
     return completion.data.choices[0].message.content.trim();
