@@ -91,7 +91,7 @@ client.once('ready', () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
 
-client.on('messageCreate', message => {
+client.on('messageCreate', async message => {
   if (message.author.bot) return;
   if (!message.content.startsWith('!')) return;
 
@@ -153,6 +153,7 @@ client.on('messageCreate', message => {
 
     db[userId] = chavePix;
     saveDatabase(db);
+    await logPixOperacao(`Usuário ${message.author.tag} registrou a chave Pix: ${chavePix}`);
     return message.reply('Sua chave Pix foi registrada com sucesso!');
   }
 
@@ -198,6 +199,7 @@ client.on('messageCreate', message => {
             content: `QR Code Pix para R$${valor.toFixed(2)} gerado com sucesso!\nChave Pix: ${chave}\nTipo de chave: ${tipoChave}`,
             files: [{ attachment: buffer, name: `pix-r${valor}.png` }]
           });
+          logPixOperacao(`Usuário ${message.author.tag} gerou QR Code Pix para R$${valor.toFixed(2)} usando a chave: ${chave}`);
         } catch (e) {
           console.error('Erro ao enviar QR Code:', e);
           if (!message.hasReplied) return message.reply('Erro ao enviar QR Code.');
@@ -250,6 +252,7 @@ client.on('messageCreate', message => {
           content: `QR Code Pix para R$${valor.toFixed(2)} de ${mention} gerado com sucesso!\nChave Pix (${tipoChave}): ${chave}`,
           files: [{ attachment: buffer, name: `pix-${mention.username}-r${valor}.png` }]
         });
+        logPixOperacao(`Usuário ${message.author.tag} gerou QR Code Pix para R$${valor.toFixed(2)} de ${mention.tag} usando a chave: ${chave}`);
       } catch (e) {
         console.error('Erro ao enviar QR Code:', e);
         return message.reply('Erro ao enviar QR Code.');
@@ -258,8 +261,87 @@ client.on('messageCreate', message => {
   }
 
   if (command === '!pixcmd') {
-    return message.reply('!pixadd @cargo\n!pixrem @cargo\n!pixreg <chave>\n!pix\n!pix <valor>\n!pixver @usuario\n!pixqrcode @usuario <valor>');
+    return message.reply('!pixadd @cargo\n!pixrem @cargo\n!pixreg <chave>\n!pix\n!pix <valor>\n!pixver @usuario\n!pixqrcode @usuario <valor>\n!pixdel\n!pixlist\n!pixcopy\n!pixinfo\n!pixhelp');
+  }
+
+  if (command === '!pixlist') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply('Apenas administradores podem ver todas as chaves Pix.');
+    }
+    const entries = Object.entries(db);
+    if (entries.length === 0) {
+      return message.reply('Nenhuma chave Pix registrada no servidor.');
+    }
+    let resposta = 'Chaves Pix registradas:\n';
+    for (const [id, chave] of entries) {
+      const user = await message.guild.members.fetch(id).catch(() => null);
+      const nome = user ? user.user.tag : `ID: ${id}`;
+      const tipoChave = detectarTipoChavePix(chave);
+      resposta += `- ${nome}: ${chave} (${tipoChave})\n`;
+    }
+    return message.reply(resposta);
+  }
+
+  if (command === '!pixdel') {
+    if (!db[userId]) {
+      return message.reply('Você não possui uma chave Pix registrada.');
+    }
+    delete db[userId];
+    saveDatabase(db);
+    await logPixOperacao(`Usuário ${message.author.tag} removeu sua chave Pix.`);
+    return message.reply('Sua chave Pix foi removida com sucesso!');
+  }
+
+  if (command === '!pixinfo') {
+    return message.reply('Bot Pix para Discord. Permite registrar, consultar e gerar QR Code Pix. Use !pixcmd para ver todos os comandos.');
+  }
+
+  if (command === '!pixhelp') {
+    return message.reply(
+      '**Comandos disponíveis:**\n' +
+      '!pixadd @cargo — Adiciona permissão para um cargo usar o bot\n' +
+      '!pixrem @cargo — Remove permissão de um cargo\n' +
+      '!pixreg <chave> — Registra sua chave Pix\n' +
+      '!pix — Mostra sua chave Pix\n' +
+      '!pix <valor> — Gera QR Code Pix para o valor\n' +
+      '!pixver @usuario — Mostra a chave Pix de outro usuário\n' +
+      '!pixqrcode @usuario <valor> — Gera QR Code Pix de outro usuário\n' +
+      '!pixdel — Remove sua chave Pix\n' +
+      '!pixlist — Lista todas as chaves Pix (admin)\n' +
+      '!pixcopy — Envia o código Copia e Cola do Pix\n' +
+      '!pixinfo — Informações sobre o bot\n' +
+      '!pixhelp — Explica cada comando\n' +
+      '!pixcmd — Lista todos os comandos\n'
+    );
+  }
+
+  if (command === '!pixcopy') {
+    if (!db[userId]) {
+      return message.reply('Você ainda não registrou sua chave Pix. Use !pixreg antes.');
+    }
+    if (args.length === 0) {
+      return message.reply('Informe o valor. Ex: !pixcopy 10.50');
+    }
+    const valor = parseFloat(args[0]);
+    if (isNaN(valor) || valor <= 0) {
+      return message.reply('Valor inválido. Use: !pixcopy <valor>');
+    }
+    const payload = gerarPayloadPix({
+      key: db[userId],
+      name: message.author.username || 'Usuário',
+      city: 'BRASIL',
+      value: valor
+    });
+    await logPixOperacao(`Usuário ${message.author.tag} gerou código Copia e Cola Pix para R$${valor.toFixed(2)} usando a chave: ${db[userId]}`);
+    return message.reply(`Copia e Cola Pix para R$${valor.toFixed(2)}:\n\n${payload}`);
   }
 });
+
+async function logPixOperacao(mensagem) {
+  const logChannel = client.channels.cache.find(c => c.name === 'pix-logs' && c.type === 0);
+  if (logChannel) {
+    logChannel.send(mensagem);
+  }
+}
 
 client.login(process.env.DISCORD_TOKEN);
