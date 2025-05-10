@@ -130,7 +130,6 @@ client.on('messageCreate', async message => {
       } else if (!estado.chave) {
         // Esperando a chave
         const chavePix = message.content.trim();
-        // Validação simples (opcional)
         let tipoDetectado = detectarTipoChavePix(chavePix);
         if ((estado.tipo === 'cpf' && tipoDetectado !== 'cpf') ||
             (estado.tipo === 'celular' && tipoDetectado !== 'cel') ||
@@ -140,7 +139,8 @@ client.on('messageCreate', async message => {
           return message.reply(`A chave informada não corresponde ao tipo ${estado.tipo.toUpperCase()}. Tente novamente ou digite !pixreg para cancelar.`);
         }
         const db = loadDatabase();
-        db[message.author.id] = chavePix;
+        // Salva tipo e chave juntos
+        db[message.author.id] = { chave: chavePix, tipo: estado.tipo };
         saveDatabase(db);
         delete aguardandoRegistro[message.author.id];
         saveRegistroState(aguardandoRegistro);
@@ -210,33 +210,28 @@ client.on('messageCreate', async message => {
   if (command === '!pix') {
     try {
       if (args.length === 0) {
-        const chave = db[userId];
-        if (!chave) {
+        const registro = db[userId];
+        if (!registro || !registro.chave) {
           return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
         }
-        const tipoChave = detectarTipoChavePix(chave);
-        return message.reply(`Chave Pix (${tipoChave === 'Aleatória' ? 'Aleatória' : tipoChave}): ${chave}${tipoChave === 'Aleatória' ? ' (chave aleatória)' : ''}`);
+        const tipoChave = registro.tipo ? registro.tipo : detectarTipoChavePix(registro.chave || registro);
+        return message.reply(`Chave Pix (${tipoChave.charAt(0).toUpperCase() + tipoChave.slice(1)}): ${registro.chave || registro}`);
       }
-
       const valor = parseFloat(args[0]);
       if (isNaN(valor) || valor <= 0) {
         return message.reply('Valor inválido. Use: `!pix valor` para gerar um QR Code');
       }
-
-      const chave = db[userId];
-      if (!chave) {
+      const registro = db[userId];
+      if (!registro || !registro.chave) {
         return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
       }
-
-      const tipoChave = detectarTipoChavePix(chave);
-      // Gera payload Pix manualmente
+      const tipoChave = registro.tipo ? registro.tipo : detectarTipoChavePix(registro.chave || registro);
       const payload = gerarPayloadPix({
-        key: chave,
+        key: registro.chave || registro,
         name: message.author.username || 'Usuário',
         city: 'BRASIL',
         value: valor
       });
-
       qrcode.toDataURL(payload, { width: 300 }, (err, url) => {
         if (err) {
           console.error('Erro ao gerar QR Code:', err);
@@ -246,7 +241,7 @@ client.on('messageCreate', async message => {
         try {
           const buffer = Buffer.from(url.split(',')[1], 'base64');
           if (!message.hasReplied) return message.reply({
-            content: `QR Code Pix para R$${valor.toFixed(2)} gerado com sucesso!\nChave Pix: ${chave}\nTipo de chave: ${tipoChave}`,
+            content: `QR Code Pix para R$${valor.toFixed(2)} gerado com sucesso!\nChave Pix: ${registro.chave || registro}\nTipo de chave: ${tipoChave}`,
             files: [{ attachment: buffer, name: `pix-r${valor}.png` }]
           });
         } catch (e) {
@@ -265,12 +260,12 @@ client.on('messageCreate', async message => {
     if (!mention) {
       return message.reply('Marque o usuário para ver a chave Pix dele. Ex: `!pixver @usuario`');
     }
-    const chave = db[mention.id];
-    if (!chave) {
+    const registro = db[mention.id];
+    if (!registro || !registro.chave) {
       return message.reply('Este usuário ainda não registrou uma chave Pix.');
     }
-    const tipoChave = detectarTipoChavePix(chave);
-    return message.reply(`Chave Pix (${tipoChave}) de ${mention}: ${chave}`);
+    const tipoChave = registro.tipo ? registro.tipo : detectarTipoChavePix(registro.chave || registro);
+    return message.reply(`Chave Pix (${tipoChave}) de ${mention}: ${registro.chave || registro}`);
   }
 
   if (command === '!pixqrcode') {
@@ -279,13 +274,13 @@ client.on('messageCreate', async message => {
     if (!mention || isNaN(valor) || valor <= 0) {
       return message.reply('Use: !pixqrcode @usuario valor');
     }
-    const chave = db[mention.id];
-    if (!chave) {
+    const registro = db[mention.id];
+    if (!registro || !registro.chave) {
       return message.reply('Este usuário ainda não registrou uma chave Pix.');
     }
-    const tipoChave = detectarTipoChavePix(chave);
+    const tipoChave = registro.tipo ? registro.tipo : detectarTipoChavePix(registro.chave || registro);
     const payload = gerarPayloadPix({
-      key: chave,
+      key: registro.chave || registro,
       name: mention.username || 'Usuário',
       city: 'BRASIL',
       value: valor
@@ -298,7 +293,7 @@ client.on('messageCreate', async message => {
       try {
         const buffer = Buffer.from(url.split(',')[1], 'base64');
         return message.reply({
-          content: `QR Code Pix para R$${valor.toFixed(2)} de ${mention} gerado com sucesso!\nChave Pix (${tipoChave}): ${chave}`,
+          content: `QR Code Pix para R$${valor.toFixed(2)} de ${mention} gerado com sucesso!\nChave Pix (${tipoChave}): ${registro.chave || registro}`,
           files: [{ attachment: buffer, name: `pix-${mention.username}-r${valor}.png` }]
         });
       } catch (e) {
@@ -321,11 +316,11 @@ client.on('messageCreate', async message => {
       return message.reply('Nenhuma chave Pix registrada no servidor.');
     }
     let resposta = 'Chaves Pix registradas:\n';
-    for (const [id, chave] of entries) {
+    for (const [id, registro] of entries) {
       const user = await message.guild.members.fetch(id).catch(() => null);
       const nome = user ? user.user.tag : `ID: ${id}`;
-      const tipoChave = detectarTipoChavePix(chave);
-      resposta += `- ${nome}: ${chave} (${tipoChave})\n`;
+      const tipoChave = registro.tipo ? registro.tipo : detectarTipoChavePix(registro.chave || registro);
+      resposta += `- ${nome}: ${registro.chave || registro} (${tipoChave})\n`;
     }
     return message.reply(resposta);
   }
@@ -374,8 +369,9 @@ client.on('messageCreate', async message => {
     if (isNaN(valor) || valor <= 0) {
       return message.reply('Valor inválido. Use: !pixcopy <valor>');
     }
+    const registro = db[userId];
     const payload = gerarPayloadPix({
-      key: db[userId],
+      key: registro.chave || registro,
       name: message.author.username || 'Usuário',
       city: 'BRASIL',
       value: valor
