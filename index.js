@@ -116,7 +116,7 @@ client.on('messageCreate', message => {
         if (!chave) {
           return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
         }
-        return message.reply(`Sua chave Pix registrada é: ${chave}`);
+        return message.reply(`Chave Pix registrada: ${chave}\nExemplo de chave Pix: chave@exemplo.com`);
       }
 
       const valor = parseFloat(args[0]);
