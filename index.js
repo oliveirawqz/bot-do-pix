@@ -79,10 +79,10 @@ function detectarTipoChavePix(chave) {
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) return 'email';
   if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) return 'aleatoria';
   if (/^\d{14}$/.test(chave)) return 'cnpj';
-  // CPF: exatamente 11 dígitos, não pode começar com DDD de celular
-  if (/^\d{11}$/.test(chave) && !/^\d{2}9\d{8}$/.test(chave)) return 'cpf';
-  // Celular: +55DD9XXXXXXXX, 55DD9XXXXXXXX, DD9XXXXXXXX
+  // Celular: +55DD9XXXXXXXX, 55DD9XXXXXXXX, DD9XXXXXXXX, DDD9XXXXXXXX
   if (/^(\+55|55)?\d{2}9\d{8}$/.test(chave)) return 'cel';
+  // CPF: exatamente 11 dígitos, mas não pode ser DDD9XXXXXXXX
+  if (/^\d{11}$/.test(chave) && !/^\d{2}9\d{8}$/.test(chave)) return 'cpf';
   return 'evp';
 }
 
