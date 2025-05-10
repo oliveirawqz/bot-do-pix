@@ -76,17 +76,12 @@ function gerarPayloadPix({ key, name, city, value, description = '', txid = '' }
 
 // Função utilitária para detectar o tipo de chave Pix
 function detectarTipoChavePix(chave) {
-  // E-mail
-  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) return 'E-mail';
-  // Aleatória
-  if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) return 'Aleatória';
-  // CNPJ
-  if (/^\d{14}$/.test(chave)) return 'CNPJ';
-  // CPF (não pode começar com + ou DDD, só 11 dígitos)
-  if (/^\d{11}$/.test(chave)) return 'CPF';
-  // Celular: +55DD9XXXXXXXX, 55DD9XXXXXXXX, DD9XXXXXXXX
-  if (/^(\+55|55)?\d{2}9\d{8}$/.test(chave)) return 'Celular';
-  return 'EVP';
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) return 'email';
+  if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) return 'aleatoria';
+  if (/^\d{14}$/.test(chave)) return 'cnpj';
+  if (/^\d{11}$/.test(chave)) return 'cpf';
+  if (/^(\+55|55)?\d{2}9\d{8}$/.test(chave)) return 'cel';
+  return 'evp';
 }
 
 // Lista de IDs dos cargos permitidos a usar o bot
@@ -153,15 +148,20 @@ client.on('messageCreate', async message => {
     }
   }
 
-  if (command === '!pixreg') {
+  // Comando para registrar chave Pix por tipo
+  if (command === '!pixcpf' || command === '!pixcel' || command === '!pixemail' || command === '!pixaleatoria' || command === '!pixcnpj') {
     const chavePix = args.join(' ');
     if (!chavePix) {
-      return message.reply('Você precisa informar sua chave Pix. Ex: `!pixreg chave@exemplo.com`');
+      return message.reply('Você precisa informar sua chave Pix. Ex: `' + command + ' chave`');
     }
-
+    const tipoEsperado = command.replace('!pix', '');
+    const tipoDetectado = detectarTipoChavePix(chavePix);
+    if (tipoEsperado !== tipoDetectado) {
+      return message.reply(`A chave informada não corresponde ao tipo esperado (${tipoEsperado.toUpperCase()}). Detected: ${tipoDetectado.toUpperCase()}`);
+    }
     db[userId] = chavePix;
     saveDatabase(db);
-    return message.reply('Sua chave Pix foi registrada com sucesso!');
+    return message.reply(`Sua chave Pix (${tipoEsperado.toUpperCase()}) foi registrada com sucesso!`);
   }
 
   if (command === '!pix') {
