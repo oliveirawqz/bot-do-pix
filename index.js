@@ -3,6 +3,7 @@ const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const qrcode = require('qrcode');
 const { Configuration, OpenAIApi } = require('openai');
+const fetch = require('node-fetch'); // Certifique-se de ter node-fetch instalado
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -131,6 +132,53 @@ if (OPENAI_KEY) {
   openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_KEY }));
 }
 
+// --- Gemini API ---
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+let geminiEnabled = !!GEMINI_KEY;
+
+async function iaResponderGemini(mensagem, usuario, channel) {
+  if (!geminiEnabled) return null;
+  // Busca contexto semelhante ao OpenAI
+  const historico = await getRecentMessagesForContext(channel, 100);
+  const prompt = historico.map(m => `${m.author}: ${m.content}`).join('\n') + `\n@${usuario}: ${mensagem}`;
+  // Exemplo de prompt e chamada para Gemini (ajuste conforme a API real)
+  try {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + GEMINI_KEY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.6,
+          maxOutputTokens: 180
+        }
+      })
+    });
+    const data = await response.json();
+    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+      return data.candidates[0].content.parts.map(p => p.text).join(' ').trim();
+    }
+    return null;
+  } catch (e) {
+    console.error('Erro Gemini:', e.message);
+    return null;
+  }
+}
+
+// Função combinada: consulta OpenAI e Gemini, retorna a mais relevante (aqui: prioriza OpenAI, mas pode ser ajustado)
+async function iaResponderCombinada(mensagem, usuario, channel) {
+  const [resOpenAI, resGemini] = await Promise.all([
+    iaResponder(mensagem, usuario, channel),
+    iaResponderGemini(mensagem, usuario, channel)
+  ]);
+  // Lógica simples: se OpenAI falhar, usa Gemini; pode ser aprimorada para comparar relevância
+  if (resOpenAI && resGemini) {
+    // Exemplo: retorna ambas, ou escolha uma lógica de "melhor resposta"
+    return `${resOpenAI}\n\n_Gemini também sugere:_\n${resGemini}`;
+  }
+  return resOpenAI || resGemini || 'Desculpe, não consegui gerar uma resposta agora.';
+}
+
 // Função para buscar o máximo de mensagens do canal para contexto IA
 async function getRecentMessagesForContext(channel, limit = 100) {
   let messages = [];
@@ -192,7 +240,8 @@ client.on('messageCreate', async message => {
 
   // IA: responde sempre que for mencionado (com contexto)
   if (message.mentions.users.has(client.user.id)) {
-    const resposta = await iaResponder(message.content, message.author.username, message.channel);
+    // Troque para a função combinada
+    const resposta = await iaResponderCombinada(message.content, message.author.username, message.channel);
     if (resposta) {
       message.reply(resposta);
     } else {
