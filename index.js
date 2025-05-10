@@ -361,7 +361,13 @@ async function logPixOperacao(mensagem) {
     logChannel = client.channels.cache.find(c => c.name === 'pix-logs' && c.type === 0);
   }
   if (logChannel) {
-    logChannel.send(mensagem);
+    try {
+      await logChannel.send(mensagem);
+    } catch (e) {
+      console.error('Erro ao enviar log para o canal:', e);
+    }
+  } else {
+    console.warn('Canal de log Pix não encontrado ou não configurado.');
   }
 }
 
