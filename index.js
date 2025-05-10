@@ -240,8 +240,8 @@ client.on('messageCreate', async message => {
 
   // IA: responde sempre que for mencionado (com contexto)
   if (message.mentions.users.has(client.user.id)) {
-    // Troque para a função combinada
-    const resposta = await iaResponderCombinada(message.content, message.author.username, message.channel);
+    // Responder apenas com Gemini
+    const resposta = await iaResponderGemini(message.content, message.author.username, message.channel);
     if (resposta) {
       message.reply(resposta);
     } else {
