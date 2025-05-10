@@ -137,10 +137,12 @@ async function iaResponder(mensagem, usuario) {
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: 'Você é um bot simpático e prestativo em um servidor Discord brasileiro. Responda de forma breve, amigável e relevante ao assunto. Sempre cite o usuário que te mencionou.' },
-        { role: 'user', content: usuario + ': ' + mensagem }
+        { role: 'system', content: 'Você é um bot simpático, prestativo e divertido em um servidor Discord brasileiro. Responda de forma breve, amigável, natural e relevante ao assunto. Sempre cite o usuário que te mencionou com @.' },
+        { role: 'user', content: `Mensagem de @${usuario}: ${mensagem}` }
       ],
-      max_tokens: 120
+      max_tokens: 120,
+      temperature: 0.7,
+      n: 1
     });
     return completion.data.choices[0].message.content.trim();
   } catch (e) {
