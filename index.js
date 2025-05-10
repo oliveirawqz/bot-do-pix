@@ -156,7 +156,6 @@ client.on('messageCreate', async message => {
 
     db[userId] = chavePix;
     saveDatabase(db);
-    await logPixOperacao(`Usuário ${message.author.tag} registrou a chave Pix: ${chavePix}`);
     return message.reply('Sua chave Pix foi registrada com sucesso!');
   }
 
@@ -202,7 +201,6 @@ client.on('messageCreate', async message => {
             content: `QR Code Pix para R$${valor.toFixed(2)} gerado com sucesso!\nChave Pix: ${chave}\nTipo de chave: ${tipoChave}`,
             files: [{ attachment: buffer, name: `pix-r${valor}.png` }]
           });
-          logPixOperacao(`Usuário ${message.author.tag} gerou QR Code Pix para R$${valor.toFixed(2)} usando a chave: ${chave}`);
         } catch (e) {
           console.error('Erro ao enviar QR Code:', e);
           if (!message.hasReplied) return message.reply('Erro ao enviar QR Code.');
@@ -255,7 +253,6 @@ client.on('messageCreate', async message => {
           content: `QR Code Pix para R$${valor.toFixed(2)} de ${mention} gerado com sucesso!\nChave Pix (${tipoChave}): ${chave}`,
           files: [{ attachment: buffer, name: `pix-${mention.username}-r${valor}.png` }]
         });
-        logPixOperacao(`Usuário ${message.author.tag} gerou QR Code Pix para R$${valor.toFixed(2)} de ${mention.tag} usando a chave: ${chave}`);
       } catch (e) {
         console.error('Erro ao enviar QR Code:', e);
         return message.reply('Erro ao enviar QR Code.');
@@ -291,7 +288,6 @@ client.on('messageCreate', async message => {
     }
     delete db[userId];
     saveDatabase(db);
-    await logPixOperacao(`Usuário ${message.author.tag} removeu sua chave Pix.`);
     return message.reply('Sua chave Pix foi removida com sucesso!');
   }
 
@@ -336,7 +332,6 @@ client.on('messageCreate', async message => {
       city: 'BRASIL',
       value: valor
     });
-    await logPixOperacao(`Usuário ${message.author.tag} gerou código Copia e Cola Pix para R$${valor.toFixed(2)} usando a chave: ${db[userId]}`);
     return message.reply(`Copia e Cola Pix para R$${valor.toFixed(2)}:\n\n${payload}`);
   }
 
@@ -352,23 +347,5 @@ client.on('messageCreate', async message => {
     return message.reply(`Canal de logs definido para: ${canal}`);
   }
 });
-
-async function logPixOperacao(mensagem) {
-  let logChannel = null;
-  if (pixLogChannelId) {
-    logChannel = client.channels.cache.get(pixLogChannelId);
-  } else {
-    logChannel = client.channels.cache.find(c => c.name === 'pix-logs' && c.type === 0);
-  }
-  if (logChannel) {
-    try {
-      await logChannel.send(mensagem);
-    } catch (e) {
-      console.error('Erro ao enviar log para o canal:', e);
-    }
-  } else {
-    console.warn('Canal de log Pix não encontrado ou não configurado.');
-  }
-}
 
 client.login(process.env.DISCORD_TOKEN);
