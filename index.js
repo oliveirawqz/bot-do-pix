@@ -131,14 +131,32 @@ if (OPENAI_KEY) {
   openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_KEY }));
 }
 
-async function iaResponder(mensagem, usuario) {
+// Função para buscar últimas mensagens do canal para contexto IA
+async function getRecentMessagesForContext(channel, limit = 10) {
+  try {
+    const messages = await channel.messages.fetch({ limit });
+    // Ordena do mais antigo para o mais recente
+    return Array.from(messages.values()).reverse().map(msg => ({
+      author: msg.author.username,
+      content: msg.content
+    }));
+  } catch (e) {
+    return [];
+  }
+}
+
+async function iaResponder(mensagem, usuario, channel) {
   if (!openai) return null;
+  // Busca contexto das últimas mensagens
+  const historico = await getRecentMessagesForContext(channel, 10);
+  const chatHistory = historico.map(m => ({ role: 'user', content: `${m.author}: ${m.content}` }));
+  chatHistory.push({ role: 'user', content: `@${usuario}: ${mensagem}` });
   try {
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: 'Você é um bot simpático, prestativo e divertido em um servidor Discord brasileiro. Responda de forma breve, amigável, natural e relevante ao assunto. Sempre cite o usuário que te mencionou com @.' },
-        { role: 'user', content: `Mensagem de @${usuario}: ${mensagem}` }
+        ...chatHistory
       ],
       max_tokens: 120,
       temperature: 0.7,
@@ -158,9 +176,9 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  // IA: responde sempre que for mencionado (corrigido)
+  // IA: responde sempre que for mencionado (com contexto)
   if (message.mentions.users.has(client.user.id)) {
-    const resposta = await iaResponder(message.content, message.author.username);
+    const resposta = await iaResponder(message.content, message.author.username, message.channel);
     if (resposta) {
       message.reply(resposta);
     } else {
