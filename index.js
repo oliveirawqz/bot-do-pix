@@ -103,7 +103,6 @@ let pixLogChannelId = null;
 
 // Mapa para armazenar estado de registro aguardando tipo/chave por usuário
 const REG_STATE_FILE = './registro_state.json';
-let aguardandoRegistro = {};
 
 function loadRegistroState() {
   if (!fs.existsSync(REG_STATE_FILE)) return {};
@@ -114,8 +113,17 @@ function saveRegistroState(state) {
   fs.writeFileSync(REG_STATE_FILE, JSON.stringify(state, null, 2));
 }
 
-// Carregar estado pendente ao iniciar
-aguardandoRegistro = loadRegistroState();
+// --- Otimização: Carregar o banco de dados e o estado de registro uma vez em memória ---
+let db = loadDatabase();
+let aguardandoRegistro = loadRegistroState();
+
+// Atualizar funções para usar as variáveis em memória
+function saveDatabaseMem() {
+  saveDatabase(db);
+}
+function saveRegistroStateMem() {
+  saveRegistroState(aguardandoRegistro);
+}
 
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 let openai = null;
@@ -163,16 +171,14 @@ client.on('messageCreate', async message => {
     if (aguardandoRegistro[message.author.id]) {
       const estado = aguardandoRegistro[message.author.id];
       if (!estado.tipo) {
-        // Esperando o tipo
         const tipo = message.content.trim().toLowerCase();
         if (!['cpf', 'celular', 'email', 'aleatoria', 'cnpj'].includes(tipo)) {
           return message.reply('Tipo inválido. Responda com: cpf, celular, email, aleatoria ou cnpj.');
         }
         estado.tipo = tipo;
-        saveRegistroState(aguardandoRegistro);
+        saveRegistroStateMem();
         return message.reply(`Agora envie sua chave Pix do tipo ${tipo.toUpperCase()}:`);
       } else if (!estado.chave) {
-        // Esperando a chave
         const chavePix = message.content.trim();
         let tipoDetectado = detectarTipoChavePix(chavePix);
         if ((estado.tipo === 'cpf' && tipoDetectado !== 'cpf') ||
@@ -182,12 +188,10 @@ client.on('messageCreate', async message => {
             (estado.tipo === 'cnpj' && tipoDetectado !== 'cnpj')) {
           return message.reply(`A chave informada não corresponde ao tipo ${estado.tipo.toUpperCase()}. Tente novamente ou digite !pixreg para cancelar.`);
         }
-        const db = loadDatabase();
-        // Salva tipo e chave juntos
         db[message.author.id] = { chave: chavePix, tipo: estado.tipo };
-        saveDatabase(db);
+        saveDatabaseMem();
         delete aguardandoRegistro[message.author.id];
-        saveRegistroState(aguardandoRegistro);
+        saveRegistroStateMem();
         return message.reply(`Sua chave Pix (${estado.tipo.toUpperCase()}) foi registrada com sucesso!`);
       }
     }
@@ -196,8 +200,6 @@ client.on('messageCreate', async message => {
 
   const args = message.content.trim().split(' ');
   const command = args.shift().toLowerCase();
-
-  const db = loadDatabase();
   const userId = message.author.id;
 
   // Comando para adicionar cargos permitidos
@@ -212,6 +214,7 @@ client.on('messageCreate', async message => {
     if (!allowedRoleIds.includes(role.id)) {
       allowedRoleIds.push(role.id);
     }
+    saveDatabaseMem();
     return message.reply(`Cargo ${role.name} adicionado à lista de permissões do bot!`);
   }
 
@@ -227,6 +230,7 @@ client.on('messageCreate', async message => {
     const index = allowedRoleIds.indexOf(role.id);
     if (index !== -1) {
       allowedRoleIds.splice(index, 1);
+      saveDatabaseMem();
       return message.reply(`Cargo ${role.name} removido da lista de permissões do bot!`);
     } else {
       return message.reply(`O cargo ${role.name} não está na lista de permissões.`);
@@ -247,7 +251,7 @@ client.on('messageCreate', async message => {
   // Novo fluxo para registro interativo
   if (command === '!pixreg') {
     aguardandoRegistro[userId] = { tipo: null, chave: null };
-    saveRegistroState(aguardandoRegistro);
+    saveRegistroStateMem();
     return message.reply('Qual o tipo da sua chave Pix? Responda com: cpf, celular, email, aleatoria ou cnpj.');
   }
 
@@ -374,7 +378,7 @@ client.on('messageCreate', async message => {
       return message.reply('Você não possui uma chave Pix registrada.');
     }
     delete db[userId];
-    saveDatabase(db);
+    saveDatabaseMem();
     return message.reply('Sua chave Pix foi removida com sucesso!');
   }
 
