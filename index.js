@@ -181,15 +181,13 @@ client.on('messageCreate', async message => {
         return message.reply(`Sua chave Pix (${estado.tipo.toUpperCase()}) foi registrada com sucesso!`);
       }
     }
-    // Interação IA: responde mensagens aleatórias (exceto comandos e bots)
-    if (!message.author.bot && !message.content.startsWith('!')) {
-      // 10% de chance de responder, ou se for mencionado
-      if ((Math.random() < 0.10) || message.mentions.has(client.user)) {
-        const resposta = await iaResponder(message.content);
-        if (resposta) {
-          message.reply(resposta);
-        }
+    // Interação IA: responde mensagens quando for mencionado
+    if (!message.author.bot && message.mentions.has(client.user)) {
+      const resposta = await iaResponder(message.content);
+      if (resposta) {
+        message.reply(resposta);
       }
+      return;
     }
     return;
   }
