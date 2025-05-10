@@ -114,7 +114,7 @@ client.on('messageCreate', message => {
       if (args.length === 0) {
         const chave = db[userId];
         if (!chave) {
-          return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.');
+          return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
         }
         return message.reply(`Sua chave Pix registrada é: ${chave}`);
       }
@@ -126,7 +126,7 @@ client.on('messageCreate', message => {
 
       const chave = db[userId];
       if (!chave) {
-        return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.');
+        return message.reply('Você ainda não registrou sua chave Pix. Use `!pixreg` antes.\nExemplo de chave Pix: chave@exemplo.com');
       }
 
       // Gera payload Pix manualmente
