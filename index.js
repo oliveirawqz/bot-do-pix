@@ -87,6 +87,9 @@ function detectarTipoChavePix(chave) {
 // Lista de IDs dos cargos permitidos a usar o bot
 const allowedRoleIds = ['1368602269985275904']; // Substitua pelos IDs dos cargos desejados
 
+// Canal de log configurável
+let pixLogChannelId = null;
+
 client.once('ready', () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
@@ -261,7 +264,7 @@ client.on('messageCreate', async message => {
   }
 
   if (command === '!pixcmd') {
-    return message.reply('!pixadd @cargo\n!pixrem @cargo\n!pixreg <chave>\n!pix\n!pix <valor>\n!pixver @usuario\n!pixqrcode @usuario <valor>\n!pixdel\n!pixlist\n!pixcopy\n!pixinfo\n!pixhelp');
+    return message.reply('!pixadd @cargo\n!pixrem @cargo\n!pixreg <chave>\n!pix\n!pix <valor>\n!pixver @usuario\n!pixqrcode @usuario <valor>\n!pixdel\n!pixlist\n!pixcopy\n!pixinfo\n!pixhelp\n!pixlog #canal');
   }
 
   if (command === '!pixlist') {
@@ -311,7 +314,8 @@ client.on('messageCreate', async message => {
       '!pixcopy — Envia o código Copia e Cola do Pix\n' +
       '!pixinfo — Informações sobre o bot\n' +
       '!pixhelp — Explica cada comando\n' +
-      '!pixcmd — Lista todos os comandos\n'
+      '!pixcmd — Lista todos os comandos\n' +
+      '!pixlog #canal — Configura o canal de logs\n'
     );
   }
 
@@ -335,10 +339,27 @@ client.on('messageCreate', async message => {
     await logPixOperacao(`Usuário ${message.author.tag} gerou código Copia e Cola Pix para R$${valor.toFixed(2)} usando a chave: ${db[userId]}`);
     return message.reply(`Copia e Cola Pix para R$${valor.toFixed(2)}:\n\n${payload}`);
   }
+
+  if (command === '!pixlog') {
+    if (!message.member.permissions.has('Administrator')) {
+      return message.reply('Apenas administradores podem configurar o canal de logs.');
+    }
+    const canal = message.mentions.channels.first();
+    if (!canal) {
+      return message.reply('Mencione o canal de texto para logs. Ex: !pixlog #canal');
+    }
+    pixLogChannelId = canal.id;
+    return message.reply(`Canal de logs definido para: ${canal}`);
+  }
 });
 
 async function logPixOperacao(mensagem) {
-  const logChannel = client.channels.cache.find(c => c.name === 'pix-logs' && c.type === 0);
+  let logChannel = null;
+  if (pixLogChannelId) {
+    logChannel = client.channels.cache.get(pixLogChannelId);
+  } else {
+    logChannel = client.channels.cache.find(c => c.name === 'pix-logs' && c.type === 0);
+  }
   if (logChannel) {
     logChannel.send(mensagem);
   }
