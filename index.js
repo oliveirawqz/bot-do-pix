@@ -2,6 +2,7 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const qrcode = require('qrcode');
+const { Configuration, OpenAIApi } = require('openai');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -116,6 +117,31 @@ function saveRegistroState(state) {
 // Carregar estado pendente ao iniciar
 aguardandoRegistro = loadRegistroState();
 
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
+let openai = null;
+if (OPENAI_KEY) {
+  const configuration = new Configuration({ apiKey: OPENAI_KEY });
+  openai = new OpenAIApi(configuration);
+}
+
+async function iaResponder(mensagem) {
+  if (!openai) return null;
+  try {
+    const completion = await openai.createChatCompletion({
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: 'Você é um bot simpático e prestativo em um servidor Discord brasileiro. Responda de forma breve, amigável e relevante ao assunto.' },
+        { role: 'user', content: mensagem }
+      ],
+      max_tokens: 100
+    });
+    return completion.data.choices[0].message.content.trim();
+  } catch (e) {
+    console.error('Erro IA:', e.message);
+    return null;
+  }
+}
+
 client.once('ready', () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
@@ -153,6 +179,16 @@ client.on('messageCreate', async message => {
         delete aguardandoRegistro[message.author.id];
         saveRegistroState(aguardandoRegistro);
         return message.reply(`Sua chave Pix (${estado.tipo.toUpperCase()}) foi registrada com sucesso!`);
+      }
+    }
+    // Interação IA: responde mensagens aleatórias (exceto comandos e bots)
+    if (!message.author.bot && !message.content.startsWith('!')) {
+      // 10% de chance de responder, ou se for mencionado
+      if ((Math.random() < 0.10) || message.mentions.has(client.user)) {
+        const resposta = await iaResponder(message.content);
+        if (resposta) {
+          message.reply(resposta);
+        }
       }
     }
     return;
