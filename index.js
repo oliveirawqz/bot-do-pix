@@ -128,20 +128,19 @@ function saveRegistroStateMem() {
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 let openai = null;
 if (OPENAI_KEY) {
-  const configuration = new Configuration({ apiKey: OPENAI_KEY });
-  openai = new OpenAIApi(configuration);
+  openai = new OpenAIApi(new Configuration({ apiKey: OPENAI_KEY }));
 }
 
-async function iaResponder(mensagem) {
+async function iaResponder(mensagem, usuario) {
   if (!openai) return null;
   try {
     const completion = await openai.createChatCompletion({
       model: 'gpt-3.5-turbo',
       messages: [
-        { role: 'system', content: 'Você é um bot simpático e prestativo em um servidor Discord brasileiro. Responda de forma breve, amigável e relevante ao assunto.' },
-        { role: 'user', content: mensagem }
+        { role: 'system', content: 'Você é um bot simpático e prestativo em um servidor Discord brasileiro. Responda de forma breve, amigável e relevante ao assunto. Sempre cite o usuário que te mencionou.' },
+        { role: 'user', content: usuario + ': ' + mensagem }
       ],
-      max_tokens: 100
+      max_tokens: 120
     });
     return completion.data.choices[0].message.content.trim();
   } catch (e) {
@@ -157,11 +156,13 @@ client.once('ready', () => {
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
 
-  // Interação IA: responde mensagens quando for mencionado (corrigido para pegar menção por id)
+  // IA: responde sempre que for mencionado (corrigido)
   if (message.mentions.users.has(client.user.id)) {
-    const resposta = await iaResponder(message.content);
+    const resposta = await iaResponder(message.content, message.author.username);
     if (resposta) {
       message.reply(resposta);
+    } else {
+      message.reply('Desculpe, não consegui gerar uma resposta agora.');
     }
     return;
   }
