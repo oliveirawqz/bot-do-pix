@@ -148,6 +148,16 @@ client.once('ready', () => {
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
+
+  // Interação IA: responde mensagens quando for mencionado (corrigido para pegar menção por id)
+  if (message.mentions.users.has(client.user.id)) {
+    const resposta = await iaResponder(message.content);
+    if (resposta) {
+      message.reply(resposta);
+    }
+    return;
+  }
+
   if (!message.content.startsWith('!')) {
     // Se o usuário está aguardando resposta para registro de chave Pix
     if (aguardandoRegistro[message.author.id]) {
@@ -180,14 +190,6 @@ client.on('messageCreate', async message => {
         saveRegistroState(aguardandoRegistro);
         return message.reply(`Sua chave Pix (${estado.tipo.toUpperCase()}) foi registrada com sucesso!`);
       }
-    }
-    // Interação IA: responde mensagens quando for mencionado
-    if (!message.author.bot && message.mentions.has(client.user)) {
-      const resposta = await iaResponder(message.content);
-      if (resposta) {
-        message.reply(resposta);
-      }
-      return;
     }
     return;
   }
