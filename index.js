@@ -120,7 +120,7 @@ client.on('messageCreate', message => {
       allowedRoleIds.splice(index, 1);
       return message.reply(`Cargo ${role.name} removido da lista de permissões do bot!`);
     } else {
-      return message.reply('Este cargo não está na lista de permissões.');
+      return message.reply(`O cargo ${role.name} não está na lista de permissões.`);
     }
   }
 
