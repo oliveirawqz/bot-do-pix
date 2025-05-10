@@ -2,8 +2,6 @@ require('dotenv').config();
 const fs = require('fs');
 const { Client, GatewayIntentBits } = require('discord.js');
 const qrcode = require('qrcode');
-const { OpenAI } = require('openai');
-const fetch = require('node-fetch'); // Certifique-se de ter node-fetch instalado
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -126,129 +124,12 @@ function saveRegistroStateMem() {
   saveRegistroState(aguardandoRegistro);
 }
 
-const OPENAI_KEY = process.env.OPENAI_API_KEY;
-let openai = null;
-if (OPENAI_KEY) {
-  openai = new OpenAI({ apiKey: OPENAI_KEY });
-}
-
-// --- Gemini API ---
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
-let geminiEnabled = !!GEMINI_KEY;
-
-async function iaResponderGemini(mensagem, usuario, channel) {
-  if (!geminiEnabled) return null;
-  // Busca contexto semelhante ao OpenAI
-  const historico = await getRecentMessagesForContext(channel, 100);
-  const prompt = historico.map(m => `${m.author}: ${m.content}`).join('\n') + `\n@${usuario}: ${mensagem}`;
-  // Exemplo de prompt e chamada para Gemini (ajuste conforme a API real)
-  try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=' + GEMINI_KEY, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 180
-        }
-      })
-    });
-    const data = await response.json();
-    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      return data.candidates[0].content.parts.map(p => p.text).join(' ').trim();
-    }
-    return null;
-  } catch (e) {
-    console.error('Erro Gemini:', e.message);
-    return null;
-  }
-}
-
-// Função combinada: consulta OpenAI e Gemini, retorna a mais relevante (aqui: prioriza OpenAI, mas pode ser ajustado)
-async function iaResponderCombinada(mensagem, usuario, channel) {
-  const [resOpenAI, resGemini] = await Promise.all([
-    iaResponder(mensagem, usuario, channel),
-    iaResponderGemini(mensagem, usuario, channel)
-  ]);
-  // Lógica simples: se OpenAI falhar, usa Gemini; pode ser aprimorada para comparar relevância
-  if (resOpenAI && resGemini) {
-    // Exemplo: retorna ambas, ou escolha uma lógica de "melhor resposta"
-    return `${resOpenAI}\n\n_Gemini também sugere:_\n${resGemini}`;
-  }
-  return resOpenAI || resGemini || 'Desculpe, não consegui gerar uma resposta agora.';
-}
-
-// Função para buscar o máximo de mensagens do canal para contexto IA
-async function getRecentMessagesForContext(channel, limit = 100) {
-  let messages = [];
-  let lastId = undefined;
-  while (messages.length < limit) {
-    const options = { limit: Math.min(100, limit - messages.length) };
-    if (lastId) options.before = lastId;
-    const fetched = await channel.messages.fetch(options);
-    if (fetched.size === 0) break;
-    messages = messages.concat(Array.from(fetched.values()));
-    lastId = fetched.last()?.id;
-    if (!lastId) break;
-  }
-  // Ordena do mais antigo para o mais recente
-  return messages.reverse().map(msg => ({
-    author: msg.author.username,
-    content: msg.content
-  }));
-}
-
-async function iaResponder(mensagem, usuario, channel) {
-  if (!openai) return null;
-  // Busca o máximo de contexto possível (até 100 mensagens)
-  const historico = await getRecentMessagesForContext(channel, 100);
-  const chatHistory = historico.map(m => ({ role: 'user', content: `${m.author}: ${m.content}` }));
-  chatHistory.push({ role: 'user', content: `@${usuario}: ${mensagem}` });
-  // Exemplo de boas conversas para o prompt
-  const exemplos = [
-    { role: 'user', content: '@Joao: Qual o melhor horário para pagar um boleto?' },
-    { role: 'assistant', content: 'Oi @Joao! O melhor horário é até as 17h em dias úteis, assim o pagamento compensa no mesmo dia.' },
-    { role: 'user', content: '@Maria: O que é uma chave Pix aleatória?' },
-    { role: 'assistant', content: 'Olá @Maria! Uma chave Pix aleatória é um código gerado pelo banco para receber pagamentos sem expor seus dados pessoais.' }
-  ];
-  try {
-    const completion = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'Você é um bot simpático, prestativo e divertido em um servidor Discord brasileiro. Responda de forma breve, amigável, natural e relevante ao assunto. Sempre cite o usuário que te mencionou com @.' },
-        ...exemplos,
-        ...chatHistory
-      ],
-      max_tokens: 180,
-      temperature: 0.6,
-      n: 1
-    });
-    return completion.data.choices[0].message.content.trim();
-  } catch (e) {
-    console.error('Erro IA:', e.message);
-    return null;
-  }
-}
-
 client.once('ready', () => {
   console.log(`Bot online como ${client.user.tag}`);
 });
 
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
-
-  // IA: responde sempre que for mencionado (com contexto)
-  if (message.mentions.users.has(client.user.id)) {
-    // Responder apenas com Gemini
-    const resposta = await iaResponderGemini(message.content, message.author.username, message.channel);
-    if (resposta) {
-      message.reply(resposta);
-    } else {
-      message.reply('Desculpe, não consegui gerar uma resposta agora.');
-    }
-    return;
-  }
 
   if (!message.content.startsWith('!')) {
     // Se o usuário está aguardando resposta para registro de chave Pix
