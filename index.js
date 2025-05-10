@@ -173,6 +173,64 @@ client.on('messageCreate', message => {
       message.reply('Erro inesperado ao processar o comando !pix.');
     }
   }
+
+  if (command === '!pixver') {
+    const mention = message.mentions.users.first();
+    if (!mention) {
+      return message.reply('Marque o usuário para ver a chave Pix dele. Ex: `!pixver @usuario`');
+    }
+    const chave = db[mention.id];
+    if (!chave) {
+      return message.reply('Este usuário ainda não registrou uma chave Pix.');
+    }
+    // Detecta o tipo de chave Pix
+    let tipoChave = 'EVP';
+    if (/^[0-9]{11}$/.test(chave)) tipoChave = 'CPF';
+    else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
+    else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
+    else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+    return message.reply(`Chave Pix (${tipoChave}) de ${mention}: ${chave}`);
+  }
+
+  if (command === '!pixqrcode') {
+    const mention = message.mentions.users.first();
+    const valor = parseFloat(args[1]);
+    if (!mention || isNaN(valor) || valor <= 0) {
+      return message.reply('Use: !pixqrcode @usuario valor');
+    }
+    const chave = db[mention.id];
+    if (!chave) {
+      return message.reply('Este usuário ainda não registrou uma chave Pix.');
+    }
+    // Detecta o tipo de chave Pix
+    let tipoChave = 'EVP';
+    if (/^[0-9]{11}$/.test(chave)) tipoChave = 'CPF';
+    else if (/^[0-9]{14}$/.test(chave)) tipoChave = 'CNPJ';
+    else if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) tipoChave = 'Celular';
+    else if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) tipoChave = 'E-mail';
+    const payload = gerarPayloadPix({
+      key: chave,
+      name: mention.username || 'Usuário',
+      city: 'BRASIL',
+      value: valor
+    });
+    qrcode.toDataURL(payload, { width: 300 }, (err, url) => {
+      if (err) {
+        console.error('Erro ao gerar QR Code:', err);
+        return message.reply('Erro ao gerar QR Code.');
+      }
+      try {
+        const buffer = Buffer.from(url.split(',')[1], 'base64');
+        return message.reply({
+          content: `QR Code Pix para R$${valor.toFixed(2)} de ${mention} gerado com sucesso!\nChave Pix (${tipoChave}): ${chave}`,
+          files: [{ attachment: buffer, name: `pix-${mention.username}-r${valor}.png` }]
+        });
+      } catch (e) {
+        console.error('Erro ao enviar QR Code:', e);
+        return message.reply('Erro ao enviar QR Code.');
+      }
+    });
+  }
 });
 
 client.login(process.env.DISCORD_TOKEN);
