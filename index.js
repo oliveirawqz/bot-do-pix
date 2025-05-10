@@ -76,9 +76,10 @@ function gerarPayloadPix({ key, name, city, value, description = '', txid = '' }
 
 // Função utilitária para detectar o tipo de chave Pix
 function detectarTipoChavePix(chave) {
+  // Celular: +5511999999999, 11999999999, 21999999999, etc.
+  if (/^(\+?55)?(\d{2})9?\d{8}$/.test(chave)) return 'Celular';
   if (/^[0-9]{11}$/.test(chave)) return 'CPF';
   if (/^[0-9]{14}$/.test(chave)) return 'CNPJ';
-  if (/^\+?\d{1,3}\d{10,11}$/.test(chave) || /^[1-9]{2}9?\d{8}$/.test(chave)) return 'Celular';
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(chave)) return 'E-mail';
   if (/^[0-9a-fA-F\-]{32,36}$/.test(chave)) return 'Aleatória';
   return 'EVP';
